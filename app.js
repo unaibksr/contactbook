@@ -475,15 +475,20 @@
   // ============================================================
   function openDetail(id) {
     const c = state.contacts.find(x => x.id === id);
-    if (!c) return;
+    if (!c) { console.warn("openDetail: no contact for id", id); return; }
     state.selectedId = id;
     c.updatedAt = Date.now();
     renderDetail();
+    // Force reflow before adding the class so the transition fires reliably
+    void detailScreen.offsetWidth;
     app.classList.add("show-detail");
   }
   function closeDetail() {
     app.classList.remove("show-detail");
     state.selectedId = null;
+    // Clear selection in list
+    const prev = listEl.querySelector(".contact-item.selected");
+    if (prev) prev.classList.remove("selected");
   }
   function renderDetail() {
     const c = state.contacts.find(x => x.id === state.selectedId);
@@ -503,6 +508,8 @@
     if (prev) prev.classList.remove("selected");
     const next = listEl.querySelector(`.contact-item[data-id="${c.id}"]`);
     if (next) next.classList.add("selected");
+    // Ensure phone-display never shows empty
+    if (!viewPhone.textContent.trim()) viewPhone.textContent = "—";
   }
 
   // ============================================================

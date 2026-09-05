@@ -100,7 +100,7 @@ body {
   font-size: 15px;
   line-height: 1.5;
   color: var(--text);
-  background: var(--bg);
+  background: var(--surface-2);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   -webkit-tap-highlight-color: transparent;
@@ -140,18 +140,26 @@ input::placeholder, textarea::placeholder { color: var(--text-faint); }
   display: flex;
   flex-direction: column;
   background: var(--bg);
+  z-index: 1;
   transition: transform 380ms cubic-bezier(0.16, 1, 0.3, 1), opacity 200ms;
   will-change: transform, opacity;
 }
 .screen.hidden { display: none; }
 
-.detail-screen { transform: translateX(100%); }
+.detail-screen {
+  transform: translateX(100%);
+  z-index: 2;
+  background: var(--bg);
+}
 .app.show-detail .list-screen {
-  transform: translateX(-8%);
+  transform: translateX(-30%);
   opacity: 0;
   pointer-events: none;
 }
-.app.show-detail .detail-screen { transform: translateX(0); }
+.app.show-detail .detail-screen {
+  transform: translateX(0);
+  z-index: 2;
+}
 
 /* ============================================================
    Top bar
