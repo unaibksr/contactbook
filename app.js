@@ -41,11 +41,18 @@
     try { localStorage.setItem(CACHE_KEY, JSON.stringify(state.contacts)); } catch {}
   }
   function normalize(c) {
+    // Accept both old single-phone and new multi-phone formats
+    let phone = c.phone || "";
+    if (!phone && Array.isArray(c.phones) && c.phones.length) {
+      // Prefer mobile/cell, then first available
+      const preferred = c.phones.find(p => /mobile|cell/i.test(p.type || "")) || c.phones[0];
+      phone = preferred.value || "";
+    }
     return {
       id: c.id || uid(),
       firstName: c.firstName || "",
       lastName: c.lastName || "",
-      phone: c.phone || "",
+      phone,
       createdAt: c.createdAt || Date.now(),
       updatedAt: c.updatedAt || Date.now(),
     };
@@ -631,23 +638,68 @@
     toast(`Exported ${state.contacts.length} contact${state.contacts.length === 1 ? "" : "s"}`, "success");
   }
   function parseVcardsSync(text) {
+    // Unfold continuation lines (RFC 2425): a line starting with space/tab is
+    // a continuation of the previous line. Handle both CRLF and LF line endings.
     const unfolded = text.replace(/\r\n[ \t]/g, "").replace(/\n[ \t]/g, "");
-    const lines = unfolded.split("\n");
-    const cards = []; let cur = null;
+    const lines = unfolded.split(/\r?\n/);
+    const cards = [];
+    let cur = null;
     for (let i = 0; i < lines.length; i++) {
       const raw = lines[i];
       if (!raw.trim()) continue;
-      const idx = raw.indexOf(":"); if (idx === -1) continue;
-      const left = raw.slice(0, idx); const value = raw.slice(idx + 1);
-      const [name] = left.split(";");
-      const key = name.toUpperCase();
-      if (key === "BEGIN" && value.toUpperCase() === "VCARD") { cur = { phone: "" }; continue; }
-      if (key === "END" && value.toUpperCase() === "VCARD") { if (cur) cards.push(cur); cur = null; continue; }
+      const idx = raw.indexOf(":");
+      if (idx === -1) continue;
+      const left = raw.slice(0, idx);
+      const value = raw.slice(idx + 1);
+      const parts = left.split(";");
+      let key = parts[0].toUpperCase();
+      // Handle Apple/Google grouped-property format: item1.TEL, item1.X-ABLabel
+      if (/^ITEM\d+\./.test(key)) key = key.split(".")[1];
+      if (key === "BEGIN" && value.trim().toUpperCase() === "VCARD") {
+        cur = { phones: [], emails: [] };
+        continue;
+      }
+      if (key === "END" && value.trim().toUpperCase() === "VCARD") {
+        if (cur) cards.push(cur);
+        cur = null;
+        continue;
+      }
       if (!cur) continue;
-      const v = value.replace(/\\n/gi, "\n").replace(/\\,/g, ",").replace(/\\;/g, ";").replace(/\\\\/g, "\\");
-      if (key === "N") { const p = v.split(";"); cur.lastName = p[0] || ""; cur.firstName = p[1] || ""; }
-      else if (key === "FN") { if (!cur.firstName && !cur.lastName) { const p = v.split(" "); cur.firstName = p[0] || ""; cur.lastName = p.slice(1).join(" "); } }
-      else if (key === "TEL") cur.phone = v;
+      // Unescape vCard value sequences
+      const v = value
+        .replace(/\\n/gi, "\n")
+        .replace(/\\,/g, ",")
+        .replace(/\\;/g, ";")
+        .replace(/\\\\/g, "\\");
+      // Parse TYPE= param (e.g., TEL;TYPE=CELL,VOICE:...)
+      const params = parts.slice(1).map(p => p.toUpperCase());
+      const typeParam = params
+        .find(p => p.startsWith("TYPE="))
+        ?.split("=")[1]
+        ?.split(",")[0]
+        ?.toLowerCase() || "";
+
+      if (key === "N") {
+        const p = v.split(";");
+        cur.lastName = p[0] || "";
+        cur.firstName = p[1] || "";
+      } else if (key === "FN") {
+        if (!cur.firstName && !cur.lastName) {
+          const p = v.split(" ");
+          cur.firstName = p[0] || "";
+          cur.lastName = p.slice(1).join(" ");
+        }
+      } else if (key === "TEL") {
+        // Some exporters use TEL;VALUE=URI:tel:+15551234567
+        const phone = v.replace(/^tel:/i, "").trim();
+        if (phone) cur.phones.push({ value: phone, type: typeParam || "mobile" });
+      } else if (key === "EMAIL") {
+        if (v.trim()) cur.emails.push({ value: v.trim(), type: typeParam || "home" });
+      } else if (key === "ORG") {
+        cur.org = v.split(";")[0];
+      } else if (key === "NOTE") {
+        cur.note = v;
+      }
     }
     return cards;
   }
@@ -673,14 +725,30 @@
     const reader = new FileReader();
     reader.onload = () => {
       try {
-        const text = String(reader.result || "");
+        let text = String(reader.result || "");
+        // Strip UTF-16 BOM if present (some Windows exporters use UTF-16)
+        if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
+        if (text.length > 0 && text.charCodeAt(0) === 0xFFFE) {
+          // UTF-16 LE BOM — try to decode properly
+          try {
+            const bytes = new Uint8Array(text.length * 2);
+            for (let i = 0; i < text.length; i++) {
+              bytes[i * 2] = text.charCodeAt(i) & 0xFF;
+              bytes[i * 2 + 1] = (text.charCodeAt(i) >> 8) & 0xFF;
+            }
+            text = new TextDecoder("utf-16le").decode(bytes);
+          } catch {}
+        }
         const imported = parseVcardsSync(text);
-        if (imported.length === 0) { toast("No contacts found", "error"); return; }
+        if (imported.length === 0) { toast("No contacts found in file", "error"); return; }
         let added = 0;
         for (const c of imported) { state.contacts.push(normalize(c)); added++; }
         persist(); renderList();
         toast(`Imported ${added} contact${added === 1 ? "" : "s"}`, "success");
-      } catch { toast("Failed to import vCard", "error"); }
+      } catch (e) {
+        console.error(e);
+        toast("Failed to import vCard", "error");
+      }
     };
     reader.readAsText(file);
   }
