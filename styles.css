@@ -169,10 +169,11 @@ input::placeholder, textarea::placeholder { color: var(--text-faint); }
   align-items: center;
   gap: 4px;
   padding: calc(var(--safe-top) + 16px) 20px 12px;
-  background: var(--bg);
+  background: var(--surface);
   flex-shrink: 0;
   position: relative;
   z-index: 5;
+  border-bottom: 1px solid var(--border);
 }
 .topbar-title {
   flex: 1;
