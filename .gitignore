@@ -1,0 +1,24 @@
+# Node / build artifacts
+node_modules/
+dist/
+build/
+*.log
+npm-debug.log*
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Runtime browser cache (NOT your contacts — those live in contacts.json)
+# If you ever want to nuke the browser-side cache, just delete this entry.
+# Keeping it ignored prevents stale localStorage snapshots from being committed.
+
+# But explicitly DO commit your real data:
+!contacts.json
+
+# Don't commit the icon generation script's intermediate files (none currently, but safe)
+# icon-192.png, icon-512.png, icon-maskable-512.png, apple-touch-icon.png, favicon-32.png are committed (PWA needs them)

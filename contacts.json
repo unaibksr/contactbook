@@ -1,0 +1,18 @@
+[
+  {
+    "id": "c_seed_ada_001",
+    "firstName": "Ada",
+    "lastName": "Lovelace",
+    "phone": "+44 20 7946 0958",
+    "createdAt": 1700000000000,
+    "updatedAt": 1700000000000
+  },
+  {
+    "id": "c_seed_alan_002",
+    "firstName": "Alan",
+    "lastName": "Turing",
+    "phone": "+44 1908 123456",
+    "createdAt": 1700000000000,
+    "updatedAt": 1700000000000
+  }
+]
