@@ -29,6 +29,14 @@
   // ============================================================
   // Persistence layer
   // ============================================================
+  function loadContacts() {
+    try {
+      const raw = localStorage.getItem(CACHE_KEY);
+      if (!raw) return [];
+      const data = JSON.parse(raw);
+      return Array.isArray(data) ? data.map(normalize) : [];
+    } catch { return []; }
+  }
   function loadCache() {
     try {
       const raw = localStorage.getItem(CACHE_KEY);
